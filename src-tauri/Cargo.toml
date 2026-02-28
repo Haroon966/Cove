@@ -2,7 +2,7 @@
 name = "cove"
 version = "0.1.0"
 description = "Cove - desktop chat app"
-authors = ["you"]
+authors = ["Cove contributors"]
 edition = "2021"
 rust-version = "1.70"
 

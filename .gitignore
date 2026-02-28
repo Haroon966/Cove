@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.local
+
+# Tauri / Rust
+src-tauri/target/
+
+# Environment and secrets
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

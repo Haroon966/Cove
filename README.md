@@ -8,6 +8,7 @@
       </td>
     </tr>
   </table>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" /></a>
 </div>
 
 A fully local, cross-platform desktop app that talks to Ollama or any OpenAI-compatible API. Sessions live in SQLite on your machine—no CDN, no tracking, plain CSS.
@@ -93,15 +94,15 @@ npm run tauri build
 
 ## 🌐 Deploy to GitHub Pages
 
-The app is set up for GitHub Pages. Push to `main` and enable **Settings → Pages → Build and deployment → Source: GitHub Actions**. The site will be at `https://<owner>.github.io/cove/` (or your repo name).
+The app is set up for GitHub Pages. Push to `main` and enable **Settings → Pages → Build and deployment → Source: GitHub Actions**. The site will be at `https://Haroon966.github.io/Cove/` (or your repo name).
 
 To build locally for the same base path:
 
 ```bash
-VITE_BASE_PATH=/cove/ npm run build
+VITE_BASE_PATH=/Cove/ npm run build
 ```
 
-Then serve the `dist/` folder under the `/cove/` path.
+Then serve the `dist/` folder under the `/Cove/` path.
 
 ---
 
@@ -111,3 +112,9 @@ Then serve the `dist/` folder under the `/cove/` path.
 - **Config:** `config.json` in the same directory (backend type, base URL, model, optional API key).
 
 All requests go only to the base URL you set in Settings. **No telemetry or external APIs.**
+
+---
+
+## License
+
+This project is licensed under **GPL-3.0**. You may use and modify it. If you distribute it (or a modified version), you must give credit, indicate that you modified it (e.g. in your README or app), and link to this repository: **https://github.com/Haroon966/Cove**.

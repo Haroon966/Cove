@@ -1,8 +1,17 @@
 {
   "name": "cove",
-  "private": true,
+  "private": false,
   "version": "0.1.0",
   "type": "module",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Haroon966/Cove.git"
+  },
+  "homepage": "https://github.com/Haroon966/Cove#readme",
+  "bugs": {
+    "url": "https://github.com/Haroon966/Cove/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

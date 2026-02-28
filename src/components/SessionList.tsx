@@ -64,7 +64,7 @@ export function SessionList({
     <aside className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo" aria-hidden>
-          <img src="/cove-logo-color.png" alt="" width={24} height={24} />
+          <img src={`${import.meta.env.BASE_URL}cove-logo-color.png`} alt="" width={24} height={24} />
         </div>
         <div className="sidebar-brand">
           <h1 className="sidebar-brand-title">Cove</h1>

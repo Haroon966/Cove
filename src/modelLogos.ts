@@ -23,4 +23,4 @@ export function getModelLogoPath(modelName: string): string | null {
 }
 
 /** Base path for model logos (public/model-logos – icon folder). */
-export const MODEL_LOGO_BASE = "/model-logos";
+export const MODEL_LOGO_BASE = `${import.meta.env.BASE_URL}model-logos`;
