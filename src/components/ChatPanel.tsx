@@ -58,7 +58,7 @@ export function ChatPanel({
   const mirrorRef = useRef<HTMLDivElement>(null);
 
   const currentModel = effectiveModel ?? config?.model ?? null;
-  const { supportsVision, loading: visionLoading } = useVisionCapability(config, currentModel);
+  const { supportsVision } = useVisionCapability(config, currentModel);
 
   useEffect(() => {
     if (attachment?.type !== "image") setImageSendBlocked(false);
