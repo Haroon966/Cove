@@ -1,0 +1,8 @@
+# Permission set for config commands (app commands)
+[[permission]]
+identifier = "config"
+description = "Enables config load and save commands."
+commands.allow = [
+  "config_load",
+  "config_save"
+]

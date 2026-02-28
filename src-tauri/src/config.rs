@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
@@ -15,9 +16,14 @@ pub struct AppConfig {
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub api_key: Option<String>,
+    /// Named API keys per provider: openai, gemini, groq, etc.
+    #[serde(default)]
+    pub api_keys: Option<HashMap<String, String>>,
     pub system_prompt: Option<String>,
     pub theme: Option<String>,
     pub primary_color: Option<String>,
+    pub temperature: Option<f64>,
+    pub max_tokens: Option<u32>,
 }
 
 #[tauri::command]

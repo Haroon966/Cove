@@ -29,10 +29,20 @@ export async function streamOllamaChat(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (err: Error) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  temperature?: number,
+  maxTokens?: number
 ): Promise<void> {
   const url = baseUrl.replace(/\/$/, "") + "/api/chat";
-  const body = JSON.stringify({ model, messages, stream: true });
+  const options: Record<string, number> = {};
+  if (temperature != null) options.temperature = temperature;
+  if (maxTokens != null) options.num_predict = maxTokens;
+  const body = JSON.stringify({
+    model,
+    messages,
+    stream: true,
+    ...(Object.keys(options).length > 0 ? { options } : {}),
+  });
   let fullContent = "";
 
   try {

@@ -95,9 +95,12 @@ export default function App() {
           base_url: c.base_url ?? "http://localhost:11434",
           model: c.model ?? "llama2",
           api_key: c.api_key ?? null,
+          api_keys: c.api_keys ?? null,
           system_prompt: c.system_prompt ?? null,
           theme: c.theme ?? "light",
           primary_color: c.primary_color ?? null,
+          temperature: c.temperature ?? null,
+          max_tokens: c.max_tokens ?? null,
         });
       } catch {
         setConfig({
@@ -105,9 +108,12 @@ export default function App() {
           base_url: "http://localhost:11434",
           model: "llama2",
           api_key: null,
+          api_keys: null,
           system_prompt: null,
           theme: "light",
           primary_color: null,
+          temperature: null,
+          max_tokens: null,
         });
       }
     })();
@@ -128,6 +134,30 @@ export default function App() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  // Global shortcut to show/focus window (desktop only)
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as unknown as { __TAURI__?: unknown }).__TAURI__) return;
+    const shortcut = "CommandOrControl+Shift+C";
+    let cancelled = false;
+    (async () => {
+      try {
+        const { register, unregister } = await import("@tauri-apps/plugin-global-shortcut");
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await register(shortcut, () => {
+          getCurrentWindow().show();
+          getCurrentWindow().setFocus();
+        });
+        if (cancelled) await unregister(shortcut);
+      } catch {
+        // Plugin or permission not available
+      }
+    })();
+    return () => {
+      cancelled = true;
+      import("@tauri-apps/plugin-global-shortcut").then(({ unregister }) => unregister(shortcut)).catch(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     if (currentSessionId !== null) {
@@ -196,16 +226,123 @@ export default function App() {
     }
   };
 
-  const handleModelChange = async (model: string) => {
-    if (!config) return;
-    const updated = { ...config, model };
-    setConfig(updated);
-    try {
-      await invoke("config_save", { config: updated });
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const handleModelChange = useCallback(
+    async (model: string) => {
+      if (!config) return;
+      try {
+        if (currentSessionId !== null) {
+          await invoke("session_update_model", {
+            session_id: currentSessionId,
+            model,
+            backend_type: config.backend_type,
+          });
+          await loadSessions();
+        } else {
+          const updated = { ...config, model };
+          setConfig(updated);
+          await invoke("config_save", { config: updated });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [config, currentSessionId, loadSessions]
+  );
+
+  const handleEditAndResend = useCallback(
+    async (messageId: number, newContent: string) => {
+      const sessionId = currentSessionId;
+      if (sessionId === null || !config?.base_url?.trim()) return;
+      try {
+        await invoke("message_update", {
+          session_id: sessionId,
+          message_id: messageId,
+          content: newContent.trim(),
+        });
+        await invoke("messages_delete_from", {
+          session_id: sessionId,
+          from_message_id: messageId + 1,
+        });
+        const list = await invoke<Message[]>("messages_load", { session_id: sessionId });
+        setMessages(list);
+        setStreamingContent("");
+        setError(null);
+        let streamed = "";
+        const sessionOverride = sessions.find((s) => s.id === sessionId);
+        await send(
+          sessionId,
+          list,
+          (chunk) => {
+            streamed += chunk;
+            setStreamingContent(streamed);
+          },
+          (fullContent) => {
+            setStreamingContent(null);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: 0,
+                session_id: sessionId,
+                role: "assistant",
+                content: fullContent,
+                created_at: Math.floor(Date.now() / 1000),
+              },
+            ]);
+            finalizeAndSave(sessionId, fullContent);
+          },
+          sessionOverride ? { model: sessionOverride.model, backend_type: sessionOverride.backend_type } : undefined
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [currentSessionId, config, send, finalizeAndSave, setError, sessions]
+  );
+
+  const handleRegenerateFrom = useCallback(
+    async (fromMessageId: number) => {
+      const sessionId = currentSessionId;
+      if (sessionId === null || !config?.base_url?.trim()) return;
+      try {
+        await invoke("messages_delete_from", {
+          session_id: sessionId,
+          from_message_id: fromMessageId,
+        });
+        const list = await invoke<Message[]>("messages_load", { session_id: sessionId });
+        setMessages(list);
+        setStreamingContent("");
+        setError(null);
+        let streamed = "";
+        const sessionOverride = sessions.find((s) => s.id === sessionId);
+        await send(
+          sessionId,
+          list,
+          (chunk) => {
+            streamed += chunk;
+            setStreamingContent(streamed);
+          },
+          (fullContent) => {
+            setStreamingContent(null);
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: 0,
+                session_id: sessionId,
+                role: "assistant",
+                content: fullContent,
+                created_at: Math.floor(Date.now() / 1000),
+              },
+            ]);
+            finalizeAndSave(sessionId, fullContent);
+          },
+          sessionOverride ? { model: sessionOverride.model, backend_type: sessionOverride.backend_type } : undefined
+        );
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [currentSessionId, config, send, finalizeAndSave, setError, sessions]
+  );
 
   const handleSend = async (text: string) => {
     let sessionId = currentSessionId;
@@ -253,6 +390,7 @@ export default function App() {
     let streamed = "";
     setStreamingContent("");
     setError(null);
+    const sessionOverride = sessions.find((s) => s.id === sessionId);
     await send(
       sessionId,
       [...messages, { id: 0, session_id: sessionId, role: "user", content: text, created_at: 0 }],
@@ -273,9 +411,56 @@ export default function App() {
           },
         ]);
         finalizeAndSave(sessionId!, fullContent);
-      }
+      },
+      sessionOverride ? { model: sessionOverride.model, backend_type: sessionOverride.backend_type } : undefined
     );
   };
+
+  const handleRenameSession = useCallback(async (sessionId: number, title: string) => {
+    try {
+      await invoke("session_update_title", { session_id: sessionId, title });
+      await loadSessions();
+    } catch (e) {
+      console.error(e);
+    }
+  }, [loadSessions]);
+
+  const handleCopyMessage = useCallback((content: string) => {
+    navigator.clipboard.writeText(content).catch(() => {});
+  }, []);
+
+  const handleExportSession = useCallback(
+    async (format: "json" | "markdown") => {
+      if (currentSessionId === null) return;
+      try {
+        const data = await invoke<string>("export_session_data", {
+          session_id: currentSessionId,
+          format,
+        });
+        const ext = format === "json" ? "json" : "md";
+        const defaultName = `cove-export-${currentSessionId}.${ext}`;
+        try {
+          const { save } = await import("@tauri-apps/plugin-dialog");
+          const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+          const path = await save({ defaultPath: defaultName });
+          if (path) await writeTextFile(path, data);
+        } catch {
+          const blob = new Blob([data], {
+            type: format === "json" ? "application/json" : "text/markdown",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = defaultName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [currentSessionId]
+  );
 
   const currentSession = sessions.find((s) => s.id === currentSessionId);
   const activeChatTitle = currentSession?.title ?? "New chat";
@@ -293,6 +478,7 @@ export default function App() {
         onSelect={handleSelectSession}
         onNew={handleNewChat}
         onDelete={handleDeleteSession}
+        onRename={handleRenameSession}
         onOpenSettings={() => setShowSettings(true)}
       />
       <div className="app-main">
@@ -301,16 +487,41 @@ export default function App() {
             <span className="app-header-label">Active Chat:</span>
             <span className="app-header-title">{activeChatTitle}</span>
           </div>
+          {currentSessionId !== null && (
+            <div className="app-header-actions">
+              <button
+                type="button"
+                className="app-header-btn"
+                onClick={() => handleExportSession("markdown")}
+                title="Export as Markdown"
+              >
+                Export .md
+              </button>
+              <button
+                type="button"
+                className="app-header-btn"
+                onClick={() => handleExportSession("json")}
+                title="Export as JSON"
+              >
+                Export .json
+              </button>
+            </div>
+          )}
         </header>
         <ChatPanel
+          sessionId={currentSessionId}
           messages={messages}
           streamingContent={streamingContent}
           streaming={streaming}
           error={error}
           config={config}
+          effectiveModel={currentSession?.model ?? config?.model ?? null}
           onModelChange={handleModelChange}
           onStop={stop}
           onSend={handleSend}
+          onEditAndResend={handleEditAndResend}
+          onRegenerateFrom={handleRegenerateFrom}
+          onCopyMessage={handleCopyMessage}
         />
       </div>
       {showSettings && config !== null && (
@@ -326,6 +537,7 @@ export default function App() {
             setShowSettings(false);
             setDraftConfig(null);
           }}
+          onBackupRestore={() => loadSessions()}
         />
       )}
     </div>

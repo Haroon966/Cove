@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { Message } from "../types";
 import type { AppConfig } from "../types";
+import { getEffectiveApiKey, getEffectiveBaseUrl } from "../configHelpers";
 import { streamOllamaChat } from "../api/ollama";
 import { streamOpenAIChat } from "../api/openai";
 
@@ -21,17 +22,24 @@ export function useStreamingChat(config: AppConfig | null) {
       _sessionId: number,
       messages: Message[],
       appendAssistantChunk: (chunk: string) => void,
-      finalizeAssistant: (fullContent: string) => void
+      finalizeAssistant: (fullContent: string) => void,
+      sessionOverride?: { model?: string | null; backend_type?: string | null }
     ) => {
-      if (!config?.base_url?.trim()) {
+      if (!config) {
+        setError("No configuration.");
+        return;
+      }
+      const baseUrl = getEffectiveBaseUrl(config);
+      if (!baseUrl) {
         setError("Set base URL in Settings.");
         return;
       }
       abortRef.current = new AbortController();
       const signal = abortRef.current.signal;
-      const baseUrl = config.base_url.trim();
-      const model = (config.model?.trim() || "llama2").trim();
-      const backend = (config.backend_type || "ollama") as "ollama" | "openai";
+      const modelRaw = sessionOverride?.model ?? config.model ?? "";
+      const model = modelRaw.trim() || "llama2";
+      const backendRaw = sessionOverride?.backend_type ?? config.backend_type ?? "";
+      const backend = (backendRaw === "ollama" ? "ollama" : "openai") as "ollama" | "openai";
       setError(null);
       setStreaming(true);
       let fullContent = "";
@@ -48,6 +56,9 @@ export function useStreamingChat(config: AppConfig | null) {
         apiMessages = [{ role: "system" as const, content: systemPrompt }, ...apiMessages];
       }
 
+      const temperature = config.temperature != null ? config.temperature : undefined;
+      const maxTokens = config.max_tokens != null ? config.max_tokens : undefined;
+
       if (backend === "ollama") {
         await streamOllamaChat(
           baseUrl,
@@ -63,14 +74,16 @@ export function useStreamingChat(config: AppConfig | null) {
             setStreaming(false);
             abortRef.current = null;
           },
-          signal
+          signal,
+          temperature,
+          maxTokens
         );
       } else {
         await streamOpenAIChat(
           baseUrl,
           model,
           apiMessages,
-          config.api_key?.trim() || null,
+          getEffectiveApiKey(config),
           (chunk) => {
             fullContent += chunk;
             appendAssistantChunk(chunk);
@@ -81,7 +94,9 @@ export function useStreamingChat(config: AppConfig | null) {
             setStreaming(false);
             abortRef.current = null;
           },
-          signal
+          signal,
+          temperature,
+          maxTokens
         );
       }
     },

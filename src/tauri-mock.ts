@@ -75,10 +75,10 @@ export function installTauriMock() {
         if (cmd === "config_load") {
           try {
             const s = localStorage.getItem(CONFIG_KEY);
-            const defaults = { backend_type: "ollama", base_url: "http://localhost:11434", model: "llama2", api_key: null, system_prompt: null, theme: null, primary_color: null };
+            const defaults = { backend_type: "ollama", base_url: "http://localhost:11434", model: "llama2", api_key: null, api_keys: null, system_prompt: null, theme: null, primary_color: null, temperature: null, max_tokens: null };
             return s ? { ...defaults, ...JSON.parse(s) } : defaults;
           } catch {
-            return { backend_type: "ollama", base_url: "http://localhost:11434", model: "llama2", api_key: null, system_prompt: null, theme: null, primary_color: null };
+            return { backend_type: "ollama", base_url: "http://localhost:11434", model: "llama2", api_key: null, api_keys: null, system_prompt: null, theme: null, primary_color: null, temperature: null, max_tokens: null };
           }
         }
         if (cmd === "config_save" && args?.config) {
@@ -115,6 +115,19 @@ export function installTauriMock() {
           const bySession = getMessages();
           delete bySession[id];
           setMessages(bySession);
+          return undefined;
+        }
+        if (cmd === "session_update_model" && typeof args?.session_id === "number") {
+          const id = args.session_id as number;
+          const model = args.model as string | null | undefined;
+          const backend_type = args.backend_type as string | null | undefined;
+          const list = getSessions();
+          const session = list.find((s) => s.id === id);
+          if (session) {
+            session.model = model ?? null;
+            session.backend_type = backend_type ?? null;
+            setSessions(list);
+          }
           return undefined;
         }
         if (cmd === "session_update_title" && typeof args?.session_id === "number" && typeof args?.title === "string") {
@@ -155,6 +168,95 @@ export function installTauriMock() {
         if (cmd === "messages_load" && typeof args?.session_id === "number") {
           const list = getMessages()[args.session_id as number] ?? [];
           return list;
+        }
+        if (cmd === "message_update" && typeof args?.session_id === "number" && typeof args?.message_id === "number" && typeof args?.content === "string") {
+          const sessionId = args.session_id as number;
+          const messageId = args.message_id as number;
+          const content = args.content as string;
+          const bySession = getMessages();
+          const list = bySession[sessionId] ?? [];
+          const idx = list.findIndex((m) => m.id === messageId);
+          if (idx >= 0) {
+            list[idx].content = content;
+            setMessages(bySession);
+          }
+          return undefined;
+        }
+        if (cmd === "messages_delete_from" && typeof args?.session_id === "number" && typeof args?.from_message_id === "number") {
+          const sessionId = args.session_id as number;
+          const fromId = args.from_message_id as number;
+          const bySession = getMessages();
+          const list = bySession[sessionId] ?? [];
+          bySession[sessionId] = list.filter((m) => m.id < fromId);
+          setMessages(bySession);
+          return undefined;
+        }
+        if (cmd === "export_all_data") {
+          const sessionList = getSessions();
+          const bySession = getMessages();
+          const messagesList: StoredMessage[] = [];
+          for (const s of sessionList) {
+            for (const m of bySession[s.id] ?? []) {
+              messagesList.push(m);
+            }
+          }
+          return JSON.stringify({ sessions: sessionList, messages: messagesList }, null, 2);
+        }
+        if (cmd === "import_backup" && typeof args?.json === "string" && typeof args?.mode === "string") {
+          const backup = JSON.parse(args.json as string) as { sessions: StoredSession[]; messages: StoredMessage[] };
+          const mode = args.mode as string;
+          if (mode === "replace") {
+            setSessions([]);
+            setMessages({});
+          }
+          const existing = getSessions();
+          const existingMessages = getMessages();
+          const maxId = existing.length ? Math.max(...existing.map((s) => s.id)) : 0;
+          let nextId = maxId + 1;
+          const idMap: Record<number, number> = {};
+          for (const s of backup.sessions) {
+            idMap[s.id] = nextId;
+            existing.unshift({
+              ...s,
+              id: nextId,
+            });
+            nextId += 1;
+          }
+          setSessions(existing);
+          for (const m of backup.messages) {
+            const newSid = idMap[m.session_id] ?? m.session_id;
+            if (!existingMessages[newSid]) existingMessages[newSid] = [];
+            existingMessages[newSid].push({
+              ...m,
+              id: existingMessages[newSid].length + 1,
+              session_id: newSid,
+            });
+          }
+          setMessages(existingMessages);
+          return undefined;
+        }
+        if (cmd === "export_session_data" && typeof args?.session_id === "number" && typeof args?.format === "string") {
+          const sessionId = args.session_id as number;
+          const format = args.format as string;
+          const sessionList = getSessions();
+          const session = sessionList.find((s) => s.id === sessionId);
+          if (!session) return Promise.reject(new Error("Session not found"));
+          const messagesList = getMessages()[sessionId] ?? [];
+          if (format === "json") {
+            return JSON.stringify({ session, messages: messagesList }, null, 2);
+          }
+          if (format === "markdown") {
+            let md = `# ${session.title}\n\n`;
+            for (const m of messagesList) {
+              const label = m.role === "user" ? "**You**" : "**Assistant**";
+              md += `${label}:\n\n${m.content}\n\n`;
+            }
+            return md;
+          }
+          return Promise.reject(new Error("format must be 'json' or 'markdown'"));
+        }
+        if (cmd === "run_shell_command") {
+          return Promise.reject(new Error("Running commands is only available in the desktop app."));
         }
         if (cmd === "search_sessions" && typeof args?.query === "string") {
           const q = (args.query as string).trim().toLowerCase();

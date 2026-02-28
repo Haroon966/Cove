@@ -30,7 +30,9 @@ export async function streamOpenAIChat(
   onChunk: (text: string) => void,
   onDone: () => void,
   onError: (err: Error) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  temperature?: number,
+  maxTokens?: number
 ): Promise<void> {
   const url = baseUrl.replace(/\/$/, "") + "/v1/chat/completions";
   const headers: Record<string, string> = {
@@ -41,8 +43,17 @@ export async function streamOpenAIChat(
     model,
     messages,
     stream: true,
+    ...(temperature != null && { temperature }),
+    ...(maxTokens != null && { max_tokens: maxTokens }),
   });
 
+  let doneCalled = false;
+  const callDone = () => {
+    if (!doneCalled) {
+      doneCalled = true;
+      onDone();
+    }
+  };
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -72,7 +83,7 @@ export async function streamOpenAIChat(
         if (trimmed.startsWith("data: ")) {
           const data = trimmed.slice(6);
           if (data === "[DONE]") {
-            onDone();
+            callDone();
             continue;
           }
           try {
@@ -87,10 +98,10 @@ export async function streamOpenAIChat(
         }
       }
     }
-    onDone();
+    callDone();
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
-      onDone();
+      callDone();
       return;
     }
     onError(e instanceof Error ? e : new Error(String(e)));

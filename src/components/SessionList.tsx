@@ -1,6 +1,6 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import type { Session, SearchResult } from "../types";
-import { MessageCircle, Plus, Search, Settings, Trash2 } from "./Icons";
+import { MessageCircle, Pencil, Plus, Search, Settings, Trash2 } from "./Icons";
 
 interface SessionListProps {
   sessions: Session[];
@@ -13,6 +13,7 @@ interface SessionListProps {
   onSelect: (id: number) => void;
   onNew: () => void;
   onDelete: (id: number) => void;
+  onRename?: (sessionId: number, title: string) => void;
   onOpenSettings: () => void;
 }
 
@@ -33,8 +34,28 @@ export function SessionList({
   onSelect,
   onNew,
   onDelete,
+  onRename,
   onOpenSettings,
 }: SessionListProps) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId !== null) {
+      editInputRef.current?.focus();
+    }
+  }, [editingId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !(window as unknown as { __TAURI__?: unknown }).__TAURI__) return;
+    import("@tauri-apps/api/app")
+      .then(({ getVersion }) => getVersion())
+      .then(setAppVersion)
+      .catch(() => {});
+  }, []);
+
   const displayList = useMemo((): DisplayItem[] => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) {
@@ -68,7 +89,9 @@ export function SessionList({
         </div>
         <div className="sidebar-brand">
           <h1 className="sidebar-brand-title">Cove</h1>
-          <span className="sidebar-brand-version">Your Private Corner.</span>
+          <span className="sidebar-brand-version">
+            Your Private Corner.{appVersion ? ` · v${appVersion}` : ""}
+          </span>
         </div>
       </div>
       <button type="button" className="btn-new-session" onClick={onNew}>
@@ -116,23 +139,86 @@ export function SessionList({
               >
                 <span className="sidebar-session-icon" aria-hidden><MessageCircle size={18} strokeWidth={2} /></span>
                 <div className="sidebar-session-text">
-                  <span className="sidebar-session-title">{item.title}</span>
-                  {item.snippet != null && item.snippet !== item.title && (
-                    <span className="sidebar-session-snippet">{item.snippet}</span>
+                  {editingId === item.id ? (
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      className="sidebar-session-edit-input"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => {
+                        const t = editingTitle.trim();
+                        if (t && onRename) {
+                          onRename(item.id, t);
+                        }
+                        setEditingId(null);
+                      }}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                          const t = editingTitle.trim();
+                          if (t && onRename) {
+                            onRename(item.id, t);
+                          }
+                          setEditingId(null);
+                        } else if (e.key === "Escape") {
+                          setEditingId(null);
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Edit session title"
+                    />
+                  ) : (
+                    <>
+                      <span
+                        className="sidebar-session-title"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          if (onRename) {
+                            setEditingId(item.id);
+                            setEditingTitle(item.title);
+                          }
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                      {item.snippet != null && item.snippet !== item.title && (
+                        <span className="sidebar-session-snippet">{item.snippet}</span>
+                      )}
+                    </>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="sidebar-session-delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete(item.id);
-                  }}
-                  title="Delete session"
-                  aria-label="Delete session"
-                >
-                  <Trash2 size={16} strokeWidth={2} />
-                </button>
+                {editingId !== item.id && (
+                  <>
+                    {onRename && (
+                      <button
+                        type="button"
+                        className="sidebar-session-edit"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(item.id);
+                          setEditingTitle(item.title);
+                        }}
+                        title="Rename session"
+                        aria-label="Rename session"
+                      >
+                        <Pencil size={14} strokeWidth={2} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="sidebar-session-delete"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(item.id);
+                      }}
+                      title="Delete session"
+                      aria-label="Delete session"
+                    >
+                      <Trash2 size={16} strokeWidth={2} />
+                    </button>
+                  </>
+                )}
               </div>
             </li>
           ))}

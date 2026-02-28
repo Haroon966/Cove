@@ -1,0 +1,20 @@
+# Permission set for session and message commands (app commands)
+[[permission]]
+identifier = "sessions"
+description = "Enables session and message database commands."
+commands.allow = [
+  "session_create",
+  "session_list",
+  "session_load",
+  "session_delete",
+  "session_update_title",
+  "session_update_model",
+  "message_save",
+  "message_update",
+  "messages_load",
+  "messages_delete_from",
+  "search_sessions",
+  "export_session_data",
+  "export_all_data",
+  "import_backup"
+]

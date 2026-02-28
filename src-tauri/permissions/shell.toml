@@ -1,0 +1,7 @@
+# Permission set for shell command execution (app command)
+[[permission]]
+identifier = "shell"
+description = "Enables running user-allowed shell commands from code blocks."
+commands.allow = [
+  "run_shell_command"
+]

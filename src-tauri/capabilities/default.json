@@ -6,31 +6,10 @@
   "permissions": [
     "core:default",
     "shell:allow-open",
-    {
-      "identifier": "cove:default",
-      "allow": [
-        { "name": "cove:default" }
-      ]
-    },
-    {
-      "identifier": "cove:sessions",
-      "allow": [
-        { "name": "session_create" },
-        { "name": "session_list" },
-        { "name": "session_load" },
-        { "name": "session_delete" },
-        { "name": "session_update_title" },
-        { "name": "message_save" },
-        { "name": "messages_load" },
-        { "name": "search_sessions" }
-      ]
-    },
-    {
-      "identifier": "cove:config",
-      "allow": [
-        { "name": "config_load" },
-        { "name": "config_save" }
-      ]
-    }
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "sessions",
+    "config",
+    "shell"
   ]
 }
