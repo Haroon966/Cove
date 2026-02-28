@@ -91,6 +91,20 @@ npm run tauri build
 
 ---
 
+## 🌐 Deploy to GitHub Pages
+
+The app is set up for GitHub Pages. Push to `main` and enable **Settings → Pages → Build and deployment → Source: GitHub Actions**. The site will be at `https://<owner>.github.io/cove/` (or your repo name).
+
+To build locally for the same base path:
+
+```bash
+VITE_BASE_PATH=/cove/ npm run build
+```
+
+Then serve the `dist/` folder under the `/cove/` path.
+
+---
+
 ## 🔐 Data & config
 
 - **Database:** SQLite in the app data directory (e.g. `~/.local/share/app.cove/cove.db` on Linux).
