@@ -4,7 +4,7 @@ import { SessionList } from "../components/SessionList";
 import { ChatPanel } from "../components/ChatPanel";
 import { Settings } from "../components/Settings";
 import { useStreamingChat } from "../hooks/useStreamingChat";
-import type { Session, Message, AppConfig, SearchResult } from "../types";
+import type { Session, Message, AppConfig, SearchResult, Attachment } from "../types";
 
 const DEFAULT_PRIMARY = "#5f4a8b";
 
@@ -343,7 +343,7 @@ export default function ChatPage() {
     [currentSessionId, config, send, finalizeAndSave, setError, sessions]
   );
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, attachment?: Attachment | null) => {
     let sessionId = currentSessionId;
     if (sessionId === null) {
       try {
@@ -356,11 +356,12 @@ export default function ChatPage() {
         return;
       }
     }
+    const messageContent = text;
     try {
       await invoke("message_save", {
         session_id: sessionId,
         role: "user",
-        content: text,
+        content: messageContent,
       });
     } catch (e) {
       console.error(e);
@@ -368,7 +369,7 @@ export default function ChatPage() {
     }
     const currentSession = sessions.find((s) => s.id === sessionId);
     if (currentSession?.title === "New chat") {
-      const newTitle = text.slice(0, 50).trim() || "New chat";
+      const newTitle = messageContent.slice(0, 50).trim() || "New chat";
       try {
         await invoke("session_update_title", { session_id: sessionId, title: newTitle });
         await loadSessions();
@@ -382,7 +383,7 @@ export default function ChatPage() {
         id: 0,
         session_id: sessionId,
         role: "user",
-        content: text,
+        content: messageContent,
         created_at: Math.floor(Date.now() / 1000),
       },
     ]);
@@ -390,9 +391,13 @@ export default function ChatPage() {
     setStreamingContent("");
     setError(null);
     const sessionOverride = sessions.find((s) => s.id === sessionId);
+    const lastMessageImages =
+      attachment?.type === "image"
+        ? [{ base64: attachment.dataBase64, mimeType: attachment.mimeType }]
+        : undefined;
     await send(
       sessionId,
-      [...messages, { id: 0, session_id: sessionId, role: "user", content: text, created_at: 0 }],
+      [...messages, { id: 0, session_id: sessionId, role: "user", content: messageContent, created_at: 0 }],
       (chunk) => {
         streamed += chunk;
         setStreamingContent(streamed);
@@ -411,7 +416,8 @@ export default function ChatPage() {
         ]);
         finalizeAndSave(sessionId!, fullContent);
       },
-      sessionOverride ? { model: sessionOverride.model, backend_type: sessionOverride.backend_type } : undefined
+      sessionOverride ? { model: sessionOverride.model, backend_type: sessionOverride.backend_type } : undefined,
+      lastMessageImages ? { lastMessageImages } : undefined
     );
   };
 

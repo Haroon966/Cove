@@ -37,3 +37,18 @@ export interface AppConfig {
 }
 
 export type BackendType = "ollama" | "openai" | "groq" | "openai_compatible";
+
+export interface TextAttachment {
+  type: "text";
+  name: string;
+  content: string;
+}
+
+export interface ImageAttachment {
+  type: "image";
+  name: string;
+  dataBase64: string;
+  mimeType: string;
+}
+
+export type Attachment = TextAttachment | ImageAttachment;

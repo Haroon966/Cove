@@ -23,7 +23,8 @@ export function useStreamingChat(config: AppConfig | null) {
       messages: Message[],
       appendAssistantChunk: (chunk: string) => void,
       finalizeAssistant: (fullContent: string) => void,
-      sessionOverride?: { model?: string | null; backend_type?: string | null }
+      sessionOverride?: { model?: string | null; backend_type?: string | null },
+      options?: { lastMessageImages?: { base64: string; mimeType?: string }[] }
     ) => {
       if (!config) {
         setError("No configuration.");
@@ -59,6 +60,9 @@ export function useStreamingChat(config: AppConfig | null) {
       const temperature = config.temperature != null ? config.temperature : undefined;
       const maxTokens = config.max_tokens != null ? config.max_tokens : undefined;
 
+      const lastMessageImages = options?.lastMessageImages;
+      const ollamaImages = lastMessageImages?.map((img) => img.base64);
+
       if (backend === "ollama") {
         await streamOllamaChat(
           baseUrl,
@@ -76,7 +80,8 @@ export function useStreamingChat(config: AppConfig | null) {
           },
           signal,
           temperature,
-          maxTokens
+          maxTokens,
+          ollamaImages
         );
       } else {
         await streamOpenAIChat(
@@ -96,7 +101,8 @@ export function useStreamingChat(config: AppConfig | null) {
           },
           signal,
           temperature,
-          maxTokens
+          maxTokens,
+          lastMessageImages
         );
       }
     },
