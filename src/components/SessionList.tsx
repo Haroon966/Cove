@@ -1,4 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Session, SearchResult } from "../types";
 import { MessageCircle, Pencil, Plus, Search, Settings, Trash2 } from "./Icons";
 
@@ -83,7 +84,7 @@ export function SessionList({
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
+      <Link to="/" className="sidebar-header sidebar-header-link" aria-label="Back to home">
         <div className="sidebar-logo" aria-hidden>
           <img src={`${import.meta.env.BASE_URL}cove-logo-color.png`} alt="" width={24} height={24} />
         </div>
@@ -93,7 +94,7 @@ export function SessionList({
             Your Private Corner.{appVersion ? ` · v${appVersion}` : ""}
           </span>
         </div>
-      </div>
+      </Link>
       <button type="button" className="btn-new-session" onClick={onNew}>
         <Plus size={18} strokeWidth={2} aria-hidden />
         <span>New Session</span>
