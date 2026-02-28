@@ -1,10 +1,11 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import type { Message, AppConfig } from "../types";
+import type { Message, AppConfig, Attachment } from "../types";
 import { getEffectiveApiKey, getEffectiveBaseUrl } from "../configHelpers";
 import { fetchOllamaModels } from "../api/ollama";
 import { fetchOpenAIModels } from "../api/openai";
+import { useVisionCapability } from "../hooks/useVisionCapability";
 import { getWordCompletion } from "../wordCompletion";
-import { ArrowUp, Bot, Check, ChevronDown, Copy, Pencil, RefreshCw, Save, Square, X } from "./Icons";
+import { ArrowUp, Bot, Check, ChevronDown, Copy, Paperclip, Pencil, RefreshCw, Save, Square, X } from "./Icons";
 import { MarkdownContent } from "./MarkdownContent";
 
 function formatTime(ts: number): string {
@@ -22,7 +23,7 @@ interface ChatPanelProps {
   effectiveModel?: string | null;
   onModelChange: (model: string) => void;
   onStop: () => void;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachment?: Attachment | null) => void;
   onEditAndResend?: (messageId: number, newContent: string) => void;
   onRegenerateFrom?: (fromMessageId: number) => void;
   onCopyMessage?: (content: string) => void;
@@ -45,22 +46,29 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [models, setModels] = useState<string[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [attachment, setAttachment] = useState<{ name: string; content: string } | null>(null);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [imageSendBlocked, setImageSendBlocked] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState("");
   const mirrorRef = useRef<HTMLDivElement>(null);
+
+  const currentModel = effectiveModel ?? config?.model ?? null;
+  const { supportsVision, loading: visionLoading } = useVisionCapability(config, currentModel);
+
+  useEffect(() => {
+    if (attachment?.type !== "image") setImageSendBlocked(false);
+  }, [attachment?.type]);
 
   useEffect(() => {
     if (copiedKey === null) return;
     const t = setTimeout(() => setCopiedKey(null), 2000);
     return () => clearTimeout(t);
   }, [copiedKey]);
-
-  const currentModel = effectiveModel ?? config?.model ?? null;
 
   const readFileAsText = useCallback((file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -71,19 +79,48 @@ export function ChatPanel({
     });
   }, []);
 
+  const readFileAsDataURL = useCallback((file: File): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result ?? "");
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (match) {
+          resolve({ mimeType: match[1], base64: match[2] });
+        } else {
+          reject(new Error("Invalid data URL"));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
   const handleFileAttach = useCallback(
     async (file: File) => {
-      if (!file.type.startsWith("text/") && !file.name.match(/\.(txt|md|json|xml|html|css|js|ts|tsx|jsx|py|rs|sh|yaml|yml)$/i)) {
+      const isImage = file.type.startsWith("image/");
+      const isText =
+        file.type.startsWith("text/") || /\.(txt|md|json|xml|html|css|js|ts|tsx|jsx|py|rs|sh|yaml|yml)$/i.test(file.name);
+
+      if (isImage) {
+        try {
+          const { base64, mimeType } = await readFileAsDataURL(file);
+          setAttachment({ type: "image", name: file.name, dataBase64: base64, mimeType });
+        } catch {
+          // ignore read errors
+        }
         return;
       }
-      try {
-        const content = await readFileAsText(file);
-        setAttachment({ name: file.name, content });
-      } catch {
-        // ignore read errors
+      if (isText) {
+        try {
+          const content = await readFileAsText(file);
+          setAttachment({ type: "text", name: file.name, content });
+        } catch {
+          // ignore read errors
+        }
       }
     },
-    [readFileAsText]
+    [readFileAsText, readFileAsDataURL]
   );
 
   const fetchModels = useCallback(() => {
@@ -145,10 +182,21 @@ export function ChatPanel({
     e.preventDefault();
     const text = inputValue.trim();
     if ((!text && !attachment) || streaming) return;
-    const fullText = attachment
-      ? (text ? `${text}\n\n---\n[Attached: ${attachment.name}]\n\n${attachment.content}` : `[Attached: ${attachment.name}]\n\n${attachment.content}`)
-      : text;
-    onSend(fullText);
+    if (attachment?.type === "image" && !supportsVision) {
+      setImageSendBlocked(true);
+      return;
+    }
+    setImageSendBlocked(false);
+    if (attachment?.type === "text") {
+      const fullText = text
+        ? `${text}\n\n---\n[Attached: ${attachment.name}]\n\n${attachment.content}`
+        : `[Attached: ${attachment.name}]\n\n${attachment.content}`;
+      onSend(fullText, attachment);
+    } else if (attachment?.type === "image") {
+      onSend(text || " [Image attached]", attachment);
+    } else {
+      onSend(text);
+    }
     setInputValue("");
     setAttachment(null);
   };
@@ -383,12 +431,27 @@ export function ChatPanel({
             onDrop={(e) => {
               e.preventDefault();
               const file = e.dataTransfer?.files?.[0];
-              if (file) handleFileAttach(file);
+              if (file) void handleFileAttach(file);
             }}
             onDragOver={(e) => e.preventDefault()}
           >
-            {attachment && (
+            {imageSendBlocked && (
+              <p className="input-attachment-blocked" role="alert">
+                Select a vision-capable model above to send images.
+              </p>
+            )}
+            {attachment && (() => {
+              const isImage = attachment.type === "image";
+              const dataUrl = isImage ? `data:${attachment.mimeType};base64,${attachment.dataBase64}` : null;
+              return (
               <div className="input-attachment">
+                {isImage && dataUrl && (
+                  <img
+                    src={dataUrl}
+                    alt=""
+                    className="input-attachment-preview"
+                  />
+                )}
                 <span className="input-attachment-name">Attached: {attachment.name}</span>
                 <button
                   type="button"
@@ -399,7 +462,29 @@ export function ChatPanel({
                   <X size={14} strokeWidth={2} />
                 </button>
               </div>
-            )}
+            ); })()}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={supportsVision ? "image/*,.txt,.md,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.rs,.sh,.yaml,.yml" : ".txt,.md,.json,.xml,.html,.css,.js,.ts,.tsx,.jsx,.py,.rs,.sh,.yaml,.yml"}
+              className="input-file-hidden"
+              aria-hidden
+              tabIndex={-1}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleFileAttach(file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="input-attach-btn"
+              title={supportsVision ? "Attach image or text file" : "Attach text file"}
+              aria-label={supportsVision ? "Attach image or file" : "Attach text file"}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip size={18} strokeWidth={2} />
+            </button>
             <div className="input-text-wrap">
               <div
                 ref={mirrorRef}
@@ -412,7 +497,11 @@ export function ChatPanel({
               <textarea
                 ref={inputRef}
                 className="input-text"
-                placeholder="Type your message here... (or paste/drop a text file)"
+                placeholder={
+                  supportsVision
+                    ? "Type your message here... (or paste/drop a text or image file)"
+                    : "Type your message here... (or paste/drop a text file)"
+                }
                 rows={2}
                 disabled={streaming}
                 value={inputValue}
@@ -445,7 +534,7 @@ export function ChatPanel({
                   const file = e.clipboardData?.files?.[0];
                   if (file) {
                     e.preventDefault();
-                    handleFileAttach(file);
+                    void handleFileAttach(file);
                   }
                 }}
               />

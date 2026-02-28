@@ -17,6 +17,7 @@ export {
   Monitor,
   Palette,
   Package,
+  Paperclip,
   Pencil,
   Play,
   Plug,

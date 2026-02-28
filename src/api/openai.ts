@@ -19,8 +19,12 @@ export async function fetchOpenAIModels(
 
 export interface OpenAIMessage {
   role: "user" | "assistant" | "system";
-  content: string;
+  content: string | OpenAIContentPart[];
 }
+
+export type OpenAIContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 export async function streamOpenAIChat(
   baseUrl: string,
@@ -32,16 +36,36 @@ export async function streamOpenAIChat(
   onError: (err: Error) => void,
   signal?: AbortSignal,
   temperature?: number,
-  maxTokens?: number
+  maxTokens?: number,
+  lastMessageImages?: { base64: string; mimeType?: string }[]
 ): Promise<void> {
   const url = baseUrl.replace(/\/$/, "") + "/v1/chat/completions";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+  let payloadMessages: OpenAIMessage[] = [...messages];
+  if (lastMessageImages?.length && payloadMessages.length > 0) {
+    const last = payloadMessages[payloadMessages.length - 1];
+    if (last.role === "user" && typeof last.content === "string") {
+      const textPart: OpenAIContentPart = { type: "text", text: last.content };
+      const imageParts: OpenAIContentPart[] = lastMessageImages.map((img) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: `data:${img.mimeType ?? "image/png"};base64,${img.base64}`,
+        },
+      }));
+      payloadMessages = payloadMessages.slice(0, -1).concat({
+        ...last,
+        content: [textPart, ...imageParts],
+      });
+    }
+  }
+
   const body = JSON.stringify({
     model,
-    messages,
+    messages: payloadMessages,
     stream: true,
     ...(temperature != null && { temperature }),
     ...(maxTokens != null && { max_tokens: maxTokens }),
