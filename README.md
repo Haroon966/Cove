@@ -1,5 +1,7 @@
 # Cove
 
+![Cove logo](public/cove-logo-color.png)
+
 A fully local, cross-platform desktop app to chat with locally installed AI (Ollama or any OpenAI-compatible API). Sessions are stored in SQLite on your machine. No CDN or online requests; plain CSS only.
 
 ## Features

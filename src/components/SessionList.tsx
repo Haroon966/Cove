@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect } from "react";
 import type { Session, SearchResult } from "../types";
-import { MessageCircle, Plus, Search, Settings, Sparkles, Trash2 } from "./Icons";
+import { MessageCircle, Plus, Search, Settings, Trash2 } from "./Icons";
 
 interface SessionListProps {
   sessions: Session[];
@@ -63,7 +63,9 @@ export function SessionList({
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <div className="sidebar-logo" aria-hidden><Sparkles size={24} strokeWidth={2} /></div>
+        <div className="sidebar-logo" aria-hidden>
+          <img src="/cove-logo-color.png" alt="" width={24} height={24} />
+        </div>
         <div className="sidebar-brand">
           <h1 className="sidebar-brand-title">Cove</h1>
           <span className="sidebar-brand-version">Your Private Corner.</span>
