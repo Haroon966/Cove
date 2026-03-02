@@ -51,10 +51,18 @@ function setMessages(bySession: Record<number, StoredMessage[]>) {
   localStorage.setItem(MESSAGES_KEY, JSON.stringify(bySession));
 }
 
+/** Set to true when the browser mock is installed. Used to detect desktop (real Tauri) vs web. */
+declare global {
+  interface Window {
+    __TAURI_MOCK__?: boolean;
+  }
+}
+
 export function installTauriMock() {
   if (typeof window === "undefined" || (window as unknown as { __TAURI__?: unknown }).__TAURI__) {
     return;
   }
+  (window as unknown as { __TAURI_MOCK__: boolean }).__TAURI_MOCK__ = true;
   let nextSessionId = 1;
   let nextMessageId = 1;
   const sessions = getSessions();

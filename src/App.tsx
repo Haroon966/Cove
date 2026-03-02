@@ -5,9 +5,15 @@ import ChatPage from "./pages/ChatPage";
 
 const HOME_PATHS = ["/", "/home"];
 
+/** True when running inside the Tauri desktop app (.exe, .deb, etc.), false in browser. */
+function isDesktopApp(): boolean {
+  return typeof window !== "undefined" && !!window.__TAURI__ && !(window as Window & { __TAURI_MOCK__?: boolean }).__TAURI_MOCK__;
+}
+
 export default function App() {
   const location = useLocation();
   const isHome = HOME_PATHS.includes(location.pathname);
+  const desktop = isDesktopApp();
 
   useEffect(() => {
     if (isHome) {
@@ -20,10 +26,16 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/home" element={<HomePage />} />
+      <Route
+        path="/"
+        element={desktop ? <Navigate to="/chat" replace /> : <HomePage />}
+      />
+      <Route
+        path="/home"
+        element={desktop ? <Navigate to="/chat" replace /> : <HomePage />}
+      />
       <Route path="/chat" element={<ChatPage />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to={desktop ? "/chat" : "/"} replace />} />
     </Routes>
   );
 }
