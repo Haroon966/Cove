@@ -345,18 +345,35 @@ export default function ChatPage() {
 
   const handleSend = async (text: string, attachment?: Attachment | null) => {
     let sessionId = currentSessionId;
+    const now = Math.floor(Date.now() / 1000);
+
     if (sessionId === null) {
+      const title = text.slice(0, 50) || "New chat";
       try {
-        const title = text.slice(0, 50) || "New chat";
         sessionId = await invoke<number>("session_create", { title });
         setCurrentSessionId(sessionId);
         await loadSessions();
       } catch (e) {
         console.error(e);
-        return;
+        // Fallback: create an in-memory session when persistence is unavailable (e.g. dev/web without Tauri)
+        sessionId = Date.now();
+        setCurrentSessionId(sessionId);
+        setSessions((prev) => [
+          {
+            id: sessionId as number,
+            title,
+            created_at: now,
+            updated_at: now,
+            model: null,
+            backend_type: null,
+          },
+          ...prev,
+        ]);
       }
     }
+
     const messageContent = text;
+
     try {
       await invoke("message_save", {
         session_id: sessionId,
@@ -364,9 +381,10 @@ export default function ChatPage() {
         content: messageContent,
       });
     } catch (e) {
+      // In dev/web (no Tauri) this will fail; log and continue without persistence
       console.error(e);
-      return;
     }
+
     const currentSession = sessions.find((s) => s.id === sessionId);
     if (currentSession?.title === "New chat") {
       const newTitle = messageContent.slice(0, 50).trim() || "New chat";
@@ -377,6 +395,7 @@ export default function ChatPage() {
         console.error(e);
       }
     }
+
     setMessages((prev) => [
       ...prev,
       {
@@ -384,7 +403,7 @@ export default function ChatPage() {
         session_id: sessionId,
         role: "user",
         content: messageContent,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: now,
       },
     ]);
     let streamed = "";
