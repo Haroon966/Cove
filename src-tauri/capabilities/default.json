@@ -8,8 +8,12 @@
     "shell:allow-open",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
+    "notification:default",
     "sessions",
     "config",
-    "shell"
+    "shell",
+    "whatsapp-bridge",
+    "logging",
+    "desktop-bridge"
   ]
 }

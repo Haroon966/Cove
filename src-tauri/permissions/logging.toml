@@ -1,0 +1,10 @@
+# Permission set for backend audit logging commands.
+[[permission]]
+identifier = "logging"
+description = "Enables backend structured audit log commands."
+commands.allow = [
+  "backend_audit_log_add",
+  "backend_audit_log_list",
+  "backend_audit_log_clear"
+]
+

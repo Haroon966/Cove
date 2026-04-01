@@ -1,0 +1,19 @@
+{
+  "name": "cove-whatsapp-bridge",
+  "version": "1.0.0",
+  "description": "WhatsApp bridge for Cove AI - link via QR, reply with Ollama/OpenAI",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "install:no-chrome": "PUPPETEER_SKIP_DOWNLOAD=1 npm install"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.26.0"
+  }
+}

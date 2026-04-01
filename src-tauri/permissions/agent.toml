@@ -1,0 +1,9 @@
+# Permission set for agent file tools (read_file, write_file, list_dir within workspace)
+[[permission]]
+identifier = "agent"
+description = "Enables agent file tools within the configured workspace."
+commands.allow = [
+  "agent_read_file",
+  "agent_write_file",
+  "agent_list_dir"
+]

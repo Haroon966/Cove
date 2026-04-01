@@ -11,7 +11,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-blue.svg" alt="License: GPL-3.0" /></a>
 </div>
 
-A fully local, cross-platform desktop app that talks to Ollama or any OpenAI-compatible API. Sessions live in SQLite on your machine—no CDN, no tracking, plain CSS.
+A fully local, cross-platform desktop app that talks to Ollama, Open WebUI, or any OpenAI-compatible API. Sessions live in SQLite on your machine—no CDN, no tracking, plain CSS.
 
 ---
 
@@ -21,6 +21,7 @@ A fully local, cross-platform desktop app that talks to Ollama or any OpenAI-com
 | -------------------------- | ---------------------------------------------------------------------- |
 | **💬 Streaming chat**      | Tokens appear as they arrive.                                          |
 | **🔌 Ollama & compatible** | Works with Ollama, LocalAI, LM Studio—configurable base URL and model. |
+| **🧩 Open WebUI mode**     | Dedicated route + endpoint adapter for Open WebUI deployments.           |
 | **💾 Sessions saved**      | Conversations in SQLite; resume anytime after restart.                 |
 | **🎨 Theming**             | Light, dark, or system; optional primary color.                        |
 | **🔍 Search**              | Find text across sessions and messages.                                |
@@ -37,6 +38,20 @@ npm install && npm run dev
 ```
 
 Open **http://localhost:5173** → **Settings** → set base URL (e.g. `http://localhost:11434` for Ollama) and model.
+
+**Open WebUI mode (browser or desktop):**
+
+1. Start Open WebUI (default: `http://127.0.0.1:8080`).
+2. Open Cove and go to `/open-webui` route.
+3. In **Settings**, select **Open WebUI** provider.
+4. Set model and optional API key.
+5. Chat normally (streaming + agent tool calls are supported).
+
+**Open WebUI full console route:**
+
+- Visit `/open-webui/full` to load the complete Open WebUI interface inside Cove.
+- Point it to your running Open WebUI server URL (default `http://127.0.0.1:8080`).
+- This route exposes the full Open WebUI feature surface (RAG/library/admin/plugins/etc.) provided by your Open WebUI deployment.
 
 **Desktop app (Rust required):**
 
@@ -83,12 +98,12 @@ npm run tauri build
 | `src/`                          | React + TypeScript frontend (Vite)        |
 | `src/App.tsx`, `App.css`        | Main layout, plain CSS                    |
 | `src/components/`               | ChatPanel, SessionList, Settings          |
-| `src/api/`                      | `ollama.ts`, `openai.ts` — streaming chat |
+| `src/api/`                      | `ollama.ts`, `openai.ts`, `openwebui.ts` — provider adapters |
 | `src/hooks/useStreamingChat.ts` | Streaming state and send                  |
 | `src-tauri/`                    | Tauri 2 Rust app                          |
 | `src-tauri/src/lib.rs`          | Command registration                      |
 | `src-tauri/src/db.rs`           | SQLite sessions and messages              |
-| `src-tauri/src/config.rs`       | App config in app data dir                |
+| `src-tauri/src/config.rs`       | Config repository + migration logic        |
 
 ---
 
@@ -109,9 +124,43 @@ Then serve the `dist/` folder under the `/Cove/` path.
 ## 🔐 Data & config
 
 - **Database:** SQLite in the app data directory (e.g. `~/.local/share/app.cove/cove.db` on Linux).
-- **Config:** `config.json` in the same directory (backend type, base URL, model, optional API key).
+- **Config:** Stored in SQLite (`app_config` table) in the same database.
+- **Legacy migration:** Older installs with `config.json` are auto-migrated on first launch, then SQLite becomes source of truth.
 
 All requests go only to the base URL you set in Settings. **No telemetry or external APIs.**
+
+### Persistence Rollout Notes
+
+- Before upgrading production machines, take a local backup from Settings and keep a copy of the app data directory.
+- If migration fails or data appears inconsistent, restore from backup and follow the runbook in [`docs/persistence-runbook.md`](docs/persistence-runbook.md).
+- Browser/dev mode still uses local fallback storage for UI-only testing parity.
+
+---
+
+## Open WebUI Production Notes
+
+- Keep Open WebUI and Cove on trusted internal hosts.
+- For web deployment, allow your Cove origin in Open WebUI CORS settings.
+- Use provider-scoped API keys in Settings (`open_webui`, `openai`, `groq`, etc.).
+- Persist backups before schema upgrades (`Backup all data` from Settings).
+- Keep the Open WebUI reference commit pinned in [`docs/open-webui-integration.md`](docs/open-webui-integration.md).
+
+### Verification Checklist
+
+Run before release:
+
+```bash
+npm run build
+npm run tauri build
+```
+
+Then verify:
+
+- Open WebUI provider can fetch models.
+- Standard chat streams in `/open-webui`.
+- Agent mode tool-calls complete without parser errors.
+- Settings persist after restart (desktop) and reload (web).
+- Backup/restore roundtrip preserves tool-call metadata.
 
 ---
 
