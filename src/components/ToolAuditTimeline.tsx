@@ -17,16 +17,16 @@ interface ToolRunSummary {
   id: string;
   tool_name: string;
   status: "success" | "error";
-  duration_ms?: number | null;
+  duration_ms: number | null;
   retries: number;
-  error_category?: string | null;
+  error_category: string | null;
   created_at: number;
 }
 
 function parseToolSummaries(traces: ExecutionTrace[]): ToolRunSummary[] {
   return traces
     .filter((t) => t.trace_type === "tool_result")
-    .map((t) => {
+    .map<ToolRunSummary | null>((t) => {
       try {
         const p = JSON.parse(t.trace_payload) as {
           tool_call_id?: string;
@@ -49,7 +49,7 @@ function parseToolSummaries(traces: ExecutionTrace[]): ToolRunSummary[] {
         return null;
       }
     })
-    .filter((row): row is ToolRunSummary => !!row)
+    .filter((row): row is ToolRunSummary => row !== null)
     .slice(-20)
     .reverse();
 }
