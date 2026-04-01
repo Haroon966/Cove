@@ -1,0 +1,9 @@
+# Permission set for desktop bridge commands.
+[[permission]]
+identifier = "desktop-bridge"
+description = "Enables deep-link bridge commands."
+commands.allow = [
+  "deep_link_consume_pending",
+  "deep_link_emit"
+]
+

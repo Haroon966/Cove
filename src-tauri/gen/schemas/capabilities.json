@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Capability for Cove","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","global-shortcut:allow-register","global-shortcut:allow-unregister","sessions","config","shell"]}}
+{"default":{"identifier":"default","description":"Capability for Cove","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","global-shortcut:allow-register","global-shortcut:allow-unregister","notification:default","sessions","config","shell","whatsapp-bridge","logging","desktop-bridge"]}}

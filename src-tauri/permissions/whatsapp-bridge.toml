@@ -1,0 +1,10 @@
+# Permission set for WhatsApp bridge commands (app commands)
+[[permission]]
+identifier = "whatsapp-bridge"
+description = "Enables WhatsApp bridge start, stop, and config path commands."
+commands.allow = [
+  "whatsapp_bridge_config_path_cmd",
+  "whatsapp_write_bridge_config",
+  "whatsapp_bridge_start",
+  "whatsapp_bridge_stop"
+]

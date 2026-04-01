@@ -10,7 +10,13 @@ declare global {
         invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
       };
     };
+    __TAURI_MOCK__?: boolean;
   }
+}
+
+/** True when running inside the Tauri desktop app (not the browser mock). */
+export function isTauriDesktop(): boolean {
+  return typeof window !== "undefined" && !!window.__TAURI__ && !window.__TAURI_MOCK__;
 }
 
 export function invoke<T = unknown>(
